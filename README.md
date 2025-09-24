@@ -2,5 +2,4 @@
 
 Kodi was irritating me so I am making a personal one to my liking :)
 
-![Sample Screenshot](<img width="1279" height="749" alt="{F5619D45-375B-4608-AB18-90A186B133C6}" src="https://github.com/user-attachments/assets/ff189950-24ed-45a9-85e1-b525f1727a49" />
-)
+![Sample Screenshot](public/screenshots/sample.png)
