@@ -40,7 +40,11 @@ function createWindow() {
     win.loadURL("http://localhost:5173");
     win.webContents.openDevTools({ mode: "detach" });
   } else {
-    win.loadFile(path.join(__dirname, "../dist/index.html"));
+    const indexPath = path.join(app.getAppPath(), "dist", "index.html");
+    console.log("Loading index from:", indexPath);
+    win.loadFile(indexPath).catch((err) => {
+      console.error("Failed to load index.html:", err);
+    });
   }
 }
 
