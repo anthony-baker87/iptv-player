@@ -20,6 +20,12 @@
       "electron/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "node_modules/ffmpeg-static/ffmpeg.exe",
+        "to": "ffmpeg.exe"
+      }
+    ],
     "directories": {
       "buildResources": "build"
     },

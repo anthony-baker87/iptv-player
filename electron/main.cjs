@@ -122,7 +122,10 @@ async function startProxy(sourceUrl) {
   const routePath = `/mp4/${id}`;
 
   expressApp.get(routePath, (req, res) => {
-    const ffmpegBin = ffmpegPath || "ffmpeg";
+    const ffmpegBin = isDev
+      ? ffmpegPath // use node_modules path in dev
+      : path.join(process.resourcesPath, "ffmpeg.exe"); // packaged path
+
     const args = [
       "-hide_banner",
       "-loglevel",
