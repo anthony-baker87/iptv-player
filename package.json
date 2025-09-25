@@ -26,11 +26,9 @@
     "express": "^5.1.0",
     "ffmpeg-static": "^5.2.0",
     "hls.js": "^1.6.13",
-    "node-mpv": "^1.5.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-virtuoso": "^4.14.0",
-    "react-window": "^2.1.1"
+    "react-virtuoso": "^4.14.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
