@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import IPTVPlayer from "./components/IPTVPlayer";
 import ChannelList from "./components/ChannelList";
 import { parseM3U } from "./lib/parseM3U";
 import SettingsModal from "./components/SettingsModal";
-import "./app.css";
+import "./App.css";
 
 export default function App() {
   const [playlistUrl, setPlaylistUrl] = useState("");
@@ -14,13 +14,71 @@ export default function App() {
   const [playerBusy, setPlayerBusy] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  const selection = useRef(0);
+  const [failedChannels, setFailedChannels] = useState(new Set());
+  const [hideFailed, setHideFailed] = useState(false);
+  const [playbackId, setPlaybackId] = useState(0);
+  const markChannel = useCallback((url, failed) => {
+    setFailedChannels((previous) => {
+      const next = new Set(previous);
+      if (failed) next.add(url); else next.delete(url);
+      return next;
+    });
+  }, []);
+
+  const playChannel = useCallback(async (ch) => {
+    const requestId = ++selection.current;
+    setErr("");
+    setPlayerBusy(true);
+    setCurrent(null);
+    try {
+      const res = await window.player.proxyStream(ch.url);
+      if (requestId !== selection.current) return;
+      if (!res?.ok) throw new Error(res?.error || "Proxy failed");
+      setCurrent({ ...ch, sourceUrl: ch.url, url: res.url });
+      setPlaybackId(requestId);
+    } catch {
+      if (requestId !== selection.current) return;
+      markChannel(ch.url, true);
+      setErr("Could not start playback. Select the channel again to retry.");
+    } finally {
+      if (requestId === selection.current) setPlayerBusy(false);
+    }
+  }, [markChannel]);
+
+  const loadPlaylist = useCallback(async (url) => {
+    setErr("");
+    setLoading(true);
+    try {
+      const text = await window.api.fetchText(url);
+      const isHls = /#EXT-X-(?:TARGETDURATION|STREAM-INF|MEDIA-SEQUENCE|MAP)/.test(text);
+      const chs = text.trim().startsWith("#EXTM3U") && !isHls
+        ? parseM3U(text) : [{ name: "Direct Stream", url }];
+      setChannels(chs);
+      setFailedChannels(new Set());
+      if (chs.length) await playChannel(chs[0]);
+      else { selection.current++; setCurrent(null); await window.player.stopProxy(); }
+      await window.settings.set("playlistUrl", url);
+      await window.settings.set("channels", chs);
+      setPlaylistUrl(url);
+    } catch (e) {
+      console.error(e);
+      setErr("Failed to load playlist.");
+    } finally {
+      setLoading(false);
+    }
+  }, [playChannel]);
+
   // Load saved playlist on startup
   useEffect(() => {
+    let active = true;
+    const selectionRef = selection;
     (async () => {
       try {
         const savedUrl = await window.settings.get("playlistUrl");
         const savedChannels = await window.settings.get("channels");
 
+        if (!active) return;
         if (
           savedChannels &&
           Array.isArray(savedChannels) &&
@@ -29,7 +87,7 @@ export default function App() {
           // use cached playlist directly
           setPlaylistUrl(savedUrl || "");
           setChannels(savedChannels);
-          setCurrent(savedChannels[0]);
+          await playChannel(savedChannels[0]);
         } else if (savedUrl) {
           // fallback: fetch from saved URL
           setPlaylistUrl(savedUrl);
@@ -39,63 +97,9 @@ export default function App() {
         console.error("Failed to load saved settings:", e);
       }
     })();
-  }, []);
+    return () => { active = false; selectionRef.current++; void window.player.stopProxy(); };
+  }, [loadPlaylist, playChannel]);
 
-  // refresh = true forces new fetch + overwrite saved channels
-  async function loadPlaylist(url, refresh = false) {
-    setErr("");
-    setLoading(true);
-
-    try {
-      if (refresh || !channels.length) {
-        // fetch and parse
-        const text = await window.api.fetchText(url);
-
-        let chs;
-        if (text.trim().startsWith("#EXTM3U")) {
-          chs = parseM3U(text);
-        } else {
-          chs = [{ name: "Direct Stream", url }];
-        }
-
-        setChannels(chs);
-        if (chs.length) setCurrent(chs[0]);
-
-        // save url + parsed channels
-        await window.settings.set("playlistUrl", url);
-        await window.settings.set("channels", chs);
-      } else {
-        // already have cached channels
-        console.log("Using cached channel list");
-      }
-
-      setPlaylistUrl(url);
-    } catch (e) {
-      console.error(e);
-      setErr("Failed to load playlist.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function playChannel(ch) {
-    setErr("");
-    setPlayerBusy(true);
-    try {
-      if (ch.url.includes(".m3u8")) {
-        setCurrent(ch);
-        return;
-      }
-      const res = await window.player.proxyStream(ch.url);
-      if (!res?.ok) throw new Error(res?.error || "Proxy failed");
-      setCurrent({ ...ch, url: res.url, proxied: true });
-    } catch (e) {
-      console.error(e);
-      setErr("Could not start in-app playback. Try another channel.");
-    } finally {
-      setPlayerBusy(false);
-    }
-  }
 
   return (
     <div
@@ -138,10 +142,14 @@ export default function App() {
           {loading ? "Refreshing…" : "Refresh List"}
         </button>
 
+        <label style={{ color: "#eee", padding: 8 }}>
+          <input type="checkbox" checked={hideFailed} onChange={(e) => setHideFailed(e.target.checked)} />
+          Hide failed channels ({failedChannels.size})
+        </label>
+        {failedChannels.size > 0 && <button onClick={() => setFailedChannels(new Set())} style={{ margin: 8 }}>Reset failed channels</button>}
         <ChannelList
-          channels={channels}
+          channels={hideFailed ? channels.filter((ch) => !failedChannels.has(ch.url)) : channels}
           onChoose={(ch) => {
-            console.log("▶️ Selected channel:", ch);
             playChannel(ch);
           }}
         />
@@ -175,7 +183,9 @@ export default function App() {
             </div>
           )}
           {!loading && !playerBusy && current && (
-            <IPTVPlayer streamUrl={current.url} />
+            <IPTVPlayer key={playbackId} streamUrl={current.url}
+              onFailed={() => markChannel(current.sourceUrl, true)}
+              onPlaying={() => markChannel(current.sourceUrl, false)} />
           )}
           {!loading && !playerBusy && !current && (
             <div

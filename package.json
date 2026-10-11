@@ -10,13 +10,15 @@
     "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
     "build:renderer": "vite build",
     "build": "npm run build:renderer",
-    "dist": "npm run build:renderer && electron-builder"
+    "dist": "npm run build:renderer && electron-builder",
+    "test": "node tests/proxy.cjs"
   },
   "build": {
     "appId": "com.yourname.iptvdesktop",
     "productName": "IPTV Desktop",
     "files": [
-      "dist/**/*",
+      "dist/index.html",
+      "dist/assets/**/*",
       "electron/**/*",
       "package.json"
     ],
@@ -27,7 +29,8 @@
       }
     ],
     "directories": {
-      "buildResources": "build"
+      "buildResources": "build",
+      "output": "release"
     },
     "win": {
       "target": [
