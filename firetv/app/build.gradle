@@ -1,0 +1,38 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.iptvdesktop.firetv'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.iptvdesktop.firetv'
+        minSdk 25
+        targetSdk 35
+        versionCode Integer.parseInt(System.getenv('FIRETV_VERSION_CODE') ?: '7')
+        versionName System.getenv('FIRETV_VERSION_NAME') ?: '1.1.0'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+    testOptions { unitTests.includeAndroidResources = true }
+    signingConfigs {
+        release {
+            if (System.getenv('FIRETV_KEYSTORE_PATH')) {
+                storeFile file(System.getenv('FIRETV_KEYSTORE_PATH'))
+                storePassword System.getenv('FIRETV_STORE_PASSWORD')
+                keyAlias System.getenv('FIRETV_KEY_ALIAS')
+                keyPassword System.getenv('FIRETV_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
+    lint { abortOnError true }
+}
+dependencies {
+    implementation 'androidx.media3:media3-exoplayer:1.8.0'
+    implementation 'androidx.media3:media3-exoplayer-hls:1.8.0'
+    implementation 'androidx.media3:media3-exoplayer-dash:1.8.0'
+    implementation 'androidx.media3:media3-ui:1.8.0'
+    implementation 'androidx.media3:media3-session:1.8.0'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+}

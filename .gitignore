@@ -25,3 +25,14 @@ dist-ssr
 
 # Packaged desktop builds
 release/
+
+# Private signing material and old local archive
+*.keystore
+*.jks
+*.p12
+*.pfx
+.env
+.env.*
+dist.zip
+
+__pycache__/

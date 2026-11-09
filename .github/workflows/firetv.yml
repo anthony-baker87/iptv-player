@@ -1,0 +1,86 @@
+name: Fire TV build and release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ['firetv/**', 'scripts/firetv-release.py', '.github/workflows/firetv.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firetv-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' > /dev/null
+      - run: python scripts/test_firetv_release.py
+      - name: Fire TV tests and lint
+        working-directory: firetv
+        run: bash ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --console=plain
+
+  release:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' > /dev/null
+      - name: Set monotonic release version
+        run: |
+          echo "FIRETV_VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "FIRETV_VERSION_NAME=1.1.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+      - name: Build with the existing Fire TV signing identity
+        working-directory: firetv
+        env:
+          FIRETV_KEYSTORE_BASE64: ${{ secrets.FIRETV_KEYSTORE_BASE64 }}
+          FIRETV_KEYSTORE_PATH: ${{ runner.temp }}/firetv-signing.keystore
+          FIRETV_STORE_PASSWORD: ${{ secrets.FIRETV_STORE_PASSWORD }}
+          FIRETV_KEY_ALIAS: ${{ secrets.FIRETV_KEY_ALIAS }}
+          FIRETV_KEY_PASSWORD: ${{ secrets.FIRETV_KEY_PASSWORD }}
+        run: |
+          test -n "$FIRETV_KEYSTORE_BASE64"
+          umask 077
+          printf '%s' "$FIRETV_KEYSTORE_BASE64" | base64 --decode > "$FIRETV_KEYSTORE_PATH"
+          trap 'rm -f "$FIRETV_KEYSTORE_PATH"' EXIT
+          bash ./gradlew :app:assembleRelease --console=plain --no-daemon
+      - name: Verify APK signature and certificate
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs firetv/app/build/outputs/apk/release/app-release.apk > "$RUNNER_TEMP/apk-cert.txt"
+          python - <<'PY'
+          from pathlib import Path
+          import os, re
+          report = Path(os.environ['RUNNER_TEMP'], 'apk-cert.txt').read_text()
+          actual = re.search(r'Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]+)', report).group(1).lower()
+          expected = Path('firetv/signing-certificate.sha256').read_text().strip().lower()
+          assert actual == expected, 'APK signing identity differs from the installed Fire TV preview'
+          print('APK signature matches the original Fire TV signing identity.')
+          PY
+      - name: Publish APK and updater manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/firetv-release.py

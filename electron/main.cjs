@@ -31,6 +31,7 @@ function createWindow() {
     width,
     height,
     backgroundColor: "#121218",
+    icon: path.join(app.getAppPath(), isDev ? "public" : "dist", "app-icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -201,7 +202,7 @@ ipcMain.handle("fetch-text", async (_e, url) => {
 ipcMain.handle("proxy-stream", (_e, tsUrl) => queueProxy(async () => {
   try {
     await stopProxy();
-    if (/\.m3u8(?:[?#]|$)/i.test(tsUrl)) {
+    if (/\.(?:m3u8|mp4|m4v|webm|ogv)(?:[?#]|$)/i.test(tsUrl)) {
       return { ok: true, url: tsUrl };
     } else {
       const localUrl = await startProxy(tsUrl);

@@ -1,23 +1,48 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import IPTVPlayer from "./components/IPTVPlayer";
 import ChannelList from "./components/ChannelList";
 import { parseM3U } from "./lib/parseM3U";
 import SettingsModal from "./components/SettingsModal";
 import "./App.css";
+import { useSavedState } from "./lib/useSavedState";
+import { channelKey, historyItems, updateHistory } from "./lib/library.mjs";
+import { originalStream, rememberStream } from "./lib/navigation.mjs";
+import { recordWatch, setWatchStatus, validWatchStates, watchStatesFromHistory } from "./lib/watched.mjs";
 
 export default function App() {
   const [playlistUrl, setPlaylistUrl] = useState("");
   const [channels, setChannels] = useState([]);
   const [current, setCurrent] = useState(null);
+  const [watched, setWatched] = useState({ active: null, previous: null });
+  const lastChannel = current ? watched.previous : watched.active;
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [playerBusy, setPlayerBusy] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  const [favorites, setFavorites, favoriteError] = useSavedState("iptv.favorites.v1", [], (value) => Array.isArray(value) && value.every((key) => typeof key === "string"));
+  const [audio, setAudio, audioError] = useSavedState("iptv.audio.v1", { volume: 1, muted: false }, (value) => value && Number.isFinite(value.volume) && value.volume >= 0 && value.volume <= 1 && typeof value.muted === "boolean");
+  const [history, setHistory, historyError] = useSavedState("iptv.history.v1", {}, (value) => value && typeof value === "object" && !Array.isArray(value) && Object.values(value).every((item) => item && typeof item.key === "string" && Number.isFinite(item.position) && Number.isFinite(item.duration) && Number.isFinite(item.updatedAt)));
+  const [watchStates, setWatchStates, watchError] = useSavedState("iptv.watched.v1", watchStatesFromHistory(history), validWatchStates);
+  const watchOverrides = useRef(new Set());
+  const toggleWatched = (channel, completed) => {
+    watchOverrides.current.add(channelKey(channel));
+    setWatchStates((previous) => setWatchStatus(previous, channel, completed));
+  };
+  const [view, setView] = useState("all");
+  const toggleFavorite = (ch) => {
+    const key = channelKey(ch);
+    setFavorites((previous) => previous.includes(key) ? previous.filter((item) => item !== key) : [...previous, key]);
+  };
   const selection = useRef(0);
   const [failedChannels, setFailedChannels] = useState(new Set());
   const [hideFailed, setHideFailed] = useState(false);
   const [playbackId, setPlaybackId] = useState(0);
+  const favoriteKeys = useMemo(() => new Set(favorites), [favorites]);
+  const historyForView = view === "history" ? history : null;
+  const visibleChannels = useMemo(() => (historyForView ? historyItems(historyForView, channels) : channels)
+    .filter((ch) => (view !== "favorites" || favoriteKeys.has(channelKey(ch))) && (!hideFailed || !failedChannels.has(ch.url))),
+  [view, historyForView, channels, favoriteKeys, hideFailed, failedChannels]);
   const markChannel = useCallback((url, failed) => {
     setFailedChannels((previous) => {
       const next = new Set(previous);
@@ -27,15 +52,18 @@ export default function App() {
   }, []);
 
   const playChannel = useCallback(async (ch) => {
+    const source = originalStream(ch);
     const requestId = ++selection.current;
     setErr("");
     setPlayerBusy(true);
     setCurrent(null);
     try {
-      const res = await window.player.proxyStream(ch.url);
+      const res = await window.player.proxyStream(source.url);
       if (requestId !== selection.current) return;
       if (!res?.ok) throw new Error(res?.error || "Proxy failed");
-      setCurrent({ ...ch, sourceUrl: ch.url, url: res.url });
+      watchOverrides.current.delete(channelKey(source));
+      setCurrent({ ...source, sourceUrl: source.url, url: res.url });
+      setWatched((previous) => rememberStream(previous, source));
       setPlaybackId(requestId);
     } catch {
       if (requestId !== selection.current) return;
@@ -45,6 +73,18 @@ export default function App() {
       if (requestId === selection.current) setPlayerBusy(false);
     }
   }, [markChannel]);
+
+  useEffect(() => {
+    const handleLastKey = (event) => {
+      if (event.key.toLowerCase() !== "l" || event.repeat || event.ctrlKey || event.altKey || event.metaKey ||
+          event.target.closest?.("input, textarea, select, [contenteditable='true']") ||
+          !lastChannel || playerBusy || loading || settingsOpen) return;
+      event.preventDefault();
+      void playChannel(lastChannel);
+    };
+    window.addEventListener("keydown", handleLastKey);
+    return () => window.removeEventListener("keydown", handleLastKey);
+  }, [lastChannel, playerBusy, loading, settingsOpen, playChannel]);
 
   const loadPlaylist = useCallback(async (url) => {
     setErr("");
@@ -142,19 +182,38 @@ export default function App() {
           {loading ? "Refreshing…" : "Refresh List"}
         </button>
 
+        <button
+          onClick={() => lastChannel && playChannel(lastChannel)}
+          disabled={!lastChannel || playerBusy || loading}
+          title={lastChannel ? `Switch to ${lastChannel.name} (L)` : "Watch another channel to enable Last"}
+          style={{ margin: 8, padding: "10px 16px", borderRadius: 8, border: "1px solid #3b82f6", background: "#1e3a8a", color: "white", fontWeight: 600, opacity: lastChannel && !playerBusy && !loading ? 1 : 0.5 }}
+        >Last (L)</button>
+
         <label style={{ color: "#eee", padding: 8 }}>
           <input type="checkbox" checked={hideFailed} onChange={(e) => setHideFailed(e.target.checked)} />
           Hide failed channels ({failedChannels.size})
         </label>
         {failedChannels.size > 0 && <button onClick={() => setFailedChannels(new Set())} style={{ margin: 8 }}>Reset failed channels</button>}
+        <div style={{ display: "flex", gap: 4, padding: 8 }}>
+          {[ ["all", "All"], ["favorites", "Favorites"], ["history", "History"] ].map(([key, label]) =>
+            <button key={key} aria-pressed={view === key} onClick={() => setView(key)} style={{ flex: 1, padding: 8, background: view === key ? "#1e3a8a" : "#242438", color: "white", border: 0, borderRadius: 6 }}>{label}</button>)}
+        </div>
+        {view === "history" && <div style={{ color: "#aaa", padding: "0 8px 8px", fontSize: 12 }}>Movies and last watched episode per series</div>}
         <ChannelList
-          channels={hideFailed ? channels.filter((ch) => !failedChannels.has(ch.url)) : channels}
+          channels={visibleChannels}
+          favorites={favoriteKeys}
+          watchStates={watchStates}
+          progressHistory={history}
+          onToggleWatched={toggleWatched}
+          onToggleFavorite={toggleFavorite}
+          emptyMessage={view === "favorites" ? "Star a channel to add it here." : view === "history" ? "Watched movies and episodes will appear here." : "No matching channels."}
           onChoose={(ch) => {
             playChannel(ch);
           }}
         />
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        {(favoriteError || audioError || historyError || watchError) && <div role="alert" style={{ color: "#ffb4b4", padding: 12 }}>{favoriteError || audioError || historyError || watchError}</div>}
         {err && <div style={{ color: "#ffb4b4", padding: 12 }}>{err}</div>}
 
         <div style={{ flex: 1, padding: 12 }}>
@@ -184,6 +243,12 @@ export default function App() {
           )}
           {!loading && !playerBusy && current && (
             <IPTVPlayer key={playbackId} streamUrl={current.url}
+              audio={audio} onAudioChange={setAudio}
+              resumeRecord={history[channelKey(current)]}
+              onProgress={(progress) => {
+                setHistory((previous) => updateHistory(previous, current, progress));
+                if (!watchOverrides.current.has(channelKey(current))) setWatchStates((previous) => recordWatch(previous, current, progress));
+              }}
               onFailed={() => markChannel(current.sourceUrl, true)}
               onPlaying={() => markChannel(current.sourceUrl, false)} />
           )}

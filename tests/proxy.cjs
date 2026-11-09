@@ -23,7 +23,7 @@ const mocks = {
   } },
 };
 vm.runInNewContext(fs.readFileSync("electron/main.cjs", "utf8"), {
-  require: (name) => mocks[name] || require(name), __dirname: process.cwd(),
+  require: (name) => mocks[name] || (name.startsWith("./") ? require(require("node:path").join(process.cwd(), "electron", name)) : require(name)), __dirname: process.cwd(),
   process, console, Buffer, setTimeout, clearTimeout,
 });
 const tick = () => new Promise((resolve) => setImmediate(resolve));
@@ -62,6 +62,8 @@ const response = () => {
   assert.equal(results[2].url, "https://example.test/live.m3u8?token=test");
   const stale = response(); routes["/mp4/:id"]({ params: { id: results[1].url.split("/").pop() } }, stale);
   assert.equal(stale.status, 410);
+  const movie = await handlers["proxy-stream"](null, "https://example.test/movie.mp4?token=test");
+  assert.equal(movie.url, "https://example.test/movie.mp4?token=test", "seekable files must bypass live-only proxy");
   assert.equal(Object.keys(routes).length, 1, "channel switching must not accumulate routes");
   console.log("Proxy lifecycle checks passed: drain, disconnect, stale URLs, concurrent switching, HLS cleanup.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });

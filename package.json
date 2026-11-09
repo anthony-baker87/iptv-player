@@ -1,7 +1,7 @@
 {
   "name": "iptv-desktop",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.3.3",
   "description": "A desktop IPTV player built with Electron + React + Vite",
   "author": "Your Name",
   "license": "MIT",
@@ -11,7 +11,8 @@
     "build:renderer": "vite build",
     "build": "npm run build:renderer",
     "dist": "npm run build:renderer && electron-builder",
-    "test": "node tests/proxy.cjs"
+    "test": "node tests/proxy.cjs && node tests/library.mjs && node tests/browse.mjs && node tests/watched.mjs && node tests/navigation.mjs",
+    "test:renderer": "npm run build && electron tests/renderer.cjs"
   },
   "build": {
     "appId": "com.yourname.iptvdesktop",
@@ -20,7 +21,9 @@
       "dist/index.html",
       "dist/assets/**/*",
       "electron/**/*",
-      "package.json"
+      "package.json",
+      "dist/*.png",
+      "dist/*.ico"
     ],
     "extraResources": [
       {

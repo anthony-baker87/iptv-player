@@ -1,0 +1,39 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="horizontal" android:padding="20dp" android:background="#0E101A">
+    <LinearLayout android:id="@+id/sidebar" android:layout_width="316dp" android:layout_height="match_parent" android:orientation="vertical" android:paddingEnd="14dp">
+        <TextView android:layout_width="match_parent" android:layout_height="42dp" android:text="IPTV · Fire TV" android:textSize="24sp" android:textStyle="bold" android:textColor="#FFFFFF" android:gravity="center_vertical" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="60dp" android:orientation="horizontal">
+            <Button android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="6dp" android:paddingBottom="6dp" android:id="@+id/settings" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="Playlist" />
+            <Button android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="6dp" android:paddingBottom="6dp" android:id="@+id/refresh" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="Refresh" />
+            <Button android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="6dp" android:paddingBottom="6dp" android:id="@+id/updates" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="Updates" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:orientation="horizontal">
+            <Button android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="6dp" android:paddingBottom="6dp" android:id="@+id/tab_all" android:layout_width="0dp" android:layout_weight="1" android:layout_height="46dp" android:text="All" />
+            <Button android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="6dp" android:paddingBottom="6dp" android:id="@+id/tab_favorites" android:layout_width="0dp" android:layout_weight="1" android:layout_height="46dp" android:text="Favorites" />
+            <Button android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="6dp" android:paddingBottom="6dp" android:id="@+id/tab_history" android:layout_width="0dp" android:layout_weight="1" android:layout_height="46dp" android:text="History" />
+        </LinearLayout>
+        <EditText android:id="@+id/search" android:layout_width="match_parent" android:layout_height="48dp" android:hint="@string/channel_search" android:contentDescription="@string/channel_search" android:singleLine="true" android:inputType="text" android:imeOptions="actionDone" android:textColor="#FFFFFF" android:textColorHint="#A7B4CC" android:textSize="16sp" android:autofillHints="" />
+        <CheckBox android:id="@+id/hide_failed" android:layout_width="match_parent" android:layout_height="44dp" android:text="Hide failed channels" android:textColor="#CCD6E5" android:textSize="14sp" />
+        <TextView android:id="@+id/list_count" android:layout_width="match_parent" android:layout_height="28dp" android:textColor="#A7B4CC" android:textSize="13sp" />
+        <androidx.recyclerview.widget.RecyclerView android:id="@+id/channels" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:clipToPadding="false" android:descendantFocusability="afterDescendants" />
+        <TextView android:id="@+id/empty" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#A7B4CC" android:padding="12dp" android:textSize="16sp" />
+    </LinearLayout>
+    <LinearLayout android:id="@+id/watch_panel" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical">
+        <LinearLayout android:id="@+id/watch_toolbar" android:layout_width="match_parent" android:layout_height="60dp" android:gravity="center_vertical" android:orientation="horizontal">
+            <TextView android:id="@+id/now_playing" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:text="Select a channel" android:textColor="#FFFFFF" android:textSize="18sp" android:singleLine="true" android:ellipsize="end" android:gravity="center_vertical" />
+            <Button android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="6dp" android:paddingBottom="6dp" android:id="@+id/last" android:layout_width="76dp" android:layout_height="48dp" android:text="Last" />
+            <Button android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="6dp" android:paddingBottom="6dp" android:id="@+id/favorite" android:layout_width="58dp" android:layout_height="48dp" android:text="☆" android:contentDescription="Favorite current channel" />
+            <Button android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="6dp" android:paddingBottom="6dp" android:id="@+id/volume" android:layout_width="76dp" android:layout_height="48dp" android:text="Sound" />
+            <Button android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="6dp" android:paddingBottom="6dp" android:id="@+id/subtitles" android:layout_width="64dp" android:layout_height="48dp" android:text="CC" android:contentDescription="Subtitle tracks" />
+            <Button android:layout_margin="3dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingTop="6dp" android:paddingBottom="6dp" android:id="@+id/fullscreen" android:layout_width="86dp" android:layout_height="48dp" android:text="Watch" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/playlist_progress" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp" android:layout_marginTop="6dp" android:layout_marginBottom="6dp" android:background="#202536" android:visibility="gone">
+            <TextView android:id="@+id/playlist_progress_text" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="15sp" android:paddingBottom="8dp" />
+            <ProgressBar android:id="@+id/playlist_progress_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="8dp" android:max="100" android:indeterminate="true" android:progressTint="#4AA7FF" android:indeterminateTint="#4AA7FF" android:progressBackgroundTint="#3B455C" android:contentDescription="Playlist loading progress" />
+        </LinearLayout>
+        <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="8dp" android:textColor="#CFDDFF" android:textSize="15sp" android:accessibilityLiveRegion="polite" />
+        <androidx.media3.ui.PlayerView android:id="@+id/player" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:focusable="true" android:keepScreenOn="true" />
+        <TextView android:id="@+id/remote_hint" android:layout_width="match_parent" android:layout_height="30dp" android:text="Menu: Last  ·  Back: channels  ·  Play/Pause: playback" android:textColor="#A7B4CC" android:textSize="13sp" android:gravity="center_vertical" />
+    </LinearLayout>
+</LinearLayout>
